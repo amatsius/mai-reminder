@@ -28,6 +28,10 @@ The role of this file is to describe common mistakes and confusion points that a
 
 Strictly avoid using `any` in tests or implementation (e.g., use `unknown` or define proper mock types) to prevent `@typescript-eslint/no-explicit-any` linter errors.
 
+## Config/Security gotchas
+
+- `.mcp.json` is committed in this repo and currently contains MCP package specs plus a plain-text `CONTEXT7_API_KEY`. Treat that file as sensitive config: avoid adding floating versions there, and be careful not to copy the key into logs, docs, or commits outside the repo by accident.
+
 ## Parser gotchas
 
 - `chrono-node` can miss or misread spoken times with number words (for example, EN `at six pm`, RU `в шесть вечера`). Keep locale-specific normalization in local parser preprocessors (`enTimeNormalizer` / `ruTimeNormalizer`) and add tests when expanding phrase coverage.
