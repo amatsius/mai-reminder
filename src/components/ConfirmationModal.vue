@@ -260,12 +260,12 @@ watch(
 
       if (newResult.recurrenceRule) {
         try {
-          const rule = RRule.fromString(newResult.recurrenceRule)
-          if (rule.options.freq === RRule.HOURLY) {
+          const parsedRule = RRule.parseString(newResult.recurrenceRule.replace(/^RRULE:/i, ''))
+          if (parsedRule.freq === RRule.HOURLY) {
             recurrenceType.value = 'hours'
-            recurrenceInterval.value = rule.options.interval || 1
-            if (rule.options.byweekday && rule.options.byweekday.length > 0) {
-              hourlyRecurrenceDays.value = rule.options.byweekday.map((d: unknown) => {
+            recurrenceInterval.value = parsedRule.interval || 1
+            if (parsedRule.byweekday && parsedRule.byweekday.length > 0) {
+              hourlyRecurrenceDays.value = parsedRule.byweekday.map((d: unknown) => {
                 const weekdayObj = d as { weekday: number } | number
                 const numVal = typeof weekdayObj === 'number' ? weekdayObj : weekdayObj.weekday
                 return dayMap[numVal] || 'MO'
@@ -273,20 +273,18 @@ watch(
             } else {
               hourlyRecurrenceDays.value = [...dayMap]
             }
-          } else if (rule.options.freq === RRule.DAILY) {
+          } else if (parsedRule.freq === RRule.DAILY) {
             recurrenceType.value = 'days'
-            recurrenceInterval.value = rule.options.interval || 1
-          } else if (rule.options.freq === RRule.WEEKLY) {
-            if (rule.options.byweekday && rule.options.byweekday.length > 0) {
+            recurrenceInterval.value = parsedRule.interval || 1
+          } else if (parsedRule.freq === RRule.WEEKLY) {
+            if (parsedRule.byweekday && parsedRule.byweekday.length > 0) {
               recurrenceType.value = 'dayOfWeek'
-              const weekdayObj = rule.options.byweekday[0] as unknown as
-                | { weekday: number }
-                | number
+              const weekdayObj = parsedRule.byweekday[0] as unknown as { weekday: number } | number
               const numVal = typeof weekdayObj === 'number' ? weekdayObj : weekdayObj.weekday
               recurrenceDay.value = dayMap[numVal] || 'MO'
             } else {
               recurrenceType.value = 'weeks'
-              recurrenceInterval.value = rule.options.interval || 1
+              recurrenceInterval.value = parsedRule.interval || 1
             }
           } else {
             recurrenceType.value = 'none'

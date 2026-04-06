@@ -431,6 +431,37 @@ describe('ConfirmationModal.vue', () => {
     expect(payload.recurrenceRule).toBe('FREQ=WEEKLY;INTERVAL=1')
   })
 
+  it('preserves an every N weeks rule when opening and saving without changes', async () => {
+    const wrapper = mount(ConfirmationModal, {
+      props: {
+        isOpen: true,
+        isEditing: true,
+        result: {
+          ...defaultResult,
+          recurrenceRule: 'FREQ=WEEKLY;INTERVAL=2',
+        },
+      },
+      global: {
+        plugins: [pinia, i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    const select = wrapper.find('[data-test="recurrence-type-select"]')
+    expect((select.element as HTMLSelectElement).value).toBe('weeks')
+
+    const intervalInput = wrapper.find('[data-test="recurrence-interval-input"]')
+    expect((intervalInput.element as HTMLInputElement).value).toBe('2')
+
+    const saveButton = wrapper.findAll('button').find((b) => b.text() === 'Save Changes')
+    await saveButton?.trigger('click')
+
+    const emitted = wrapper.emitted('save')
+    expect(emitted).toBeTruthy()
+    const payload = emitted![0][0] as { recurrenceRule?: string }
+    expect(payload.recurrenceRule).toBe('FREQ=WEEKLY;INTERVAL=2')
+  })
+
   it('emits save event with correct RRULE when choosing Every Day of week', async () => {
     const wrapper = mount(ConfirmationModal, {
       props: {

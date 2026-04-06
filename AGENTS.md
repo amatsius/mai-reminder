@@ -35,6 +35,7 @@ Strictly avoid using `any` in tests or implementation (e.g., use `unknown` or de
 ## Parser gotchas
 
 - `chrono-node` can miss or misread spoken times with number words (for example, EN `at six pm`, RU `в шесть вечера`). Keep locale-specific normalization in local parser preprocessors (`enTimeNormalizer` / `ruTimeNormalizer`) and add tests when expanding phrase coverage.
+- `rrule`'s `RRule.fromString()` fills in inferred defaults for weekly rules. A plain `FREQ=WEEKLY;INTERVAL=2` can appear to have `byweekday`, so UI/edit flows that need only explicitly saved RRULE fields should prefer `RRule.parseString()` or `origOptions`.
 
 ## Store/Test gotchas
 
