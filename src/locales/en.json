@@ -201,6 +201,11 @@
     "parseFailure": "Couldn't understand that. Try rephrasing with a specific time.",
     "apiKeyRequired": "Advanced parsing requires a Cerebras API key.",
     "exactAlarmDisabled": "Exact alarms are disabled for this app on Android. Reminders may arrive late. Enable 'Alarms & reminders' in app settings.",
+    "microphonePermissionDenied": "Microphone permission denied. Allow microphone access for the app and try again.",
+    "voiceStopTimeout": "Voice recording took too long to stop. Try again.",
+    "voiceNoMatch": "No speech was recognized. Try speaking a little more clearly.",
+    "voiceClientError": "Voice input is unavailable on this device right now.",
+    "voiceGeneric": "Voice recording failed",
     "timeMustBeInFuture": "Reminder time should be in the future",
     "general": "Something went wrong. Retry or contact support."
   },
