@@ -3,6 +3,7 @@ import { ReminderStatus } from '../../src/types/reminder'
 import {
   alignRecurrenceRuleTime,
   getNextScheduledAt,
+  resolveReminderDisplayScheduledAt,
   resolveLatestMissedScheduledAt,
   resolveNotificationScheduledAt,
   resolveNotificationWindowedAt,
@@ -142,6 +143,96 @@ describe('schedulerService', () => {
       expect(resolved).toBeDefined()
       expect(resolved!.getHours()).toBeGreaterThanOrEqual(9)
       expect(resolved!.getHours()).toBeLessThanOrEqual(22)
+    })
+  })
+
+  describe('resolveReminderDisplayScheduledAt', () => {
+    it('keeps future hourly reminders unchanged when already inside the window', () => {
+      const scheduledAt = new Date(2026, 2, 1, 10, 30, 0)
+      const resolved = resolveReminderDisplayScheduledAt(
+        {
+          id: 'hourly-inside-window',
+          title: 'Hydrate',
+          scheduledAt,
+          status: ReminderStatus.PENDING,
+          recurrenceRule: 'FREQ=HOURLY;INTERVAL=2;BYMINUTE=30;BYSECOND=0',
+        },
+        '09:00',
+        '22:00',
+        new Date(2026, 2, 1, 9, 0, 0)
+      )
+
+      expect(resolved.getTime()).toBe(scheduledAt.getTime())
+    })
+
+    it('projects future hourly reminders outside the window into the next valid slot', () => {
+      const resolved = resolveReminderDisplayScheduledAt(
+        {
+          id: 'hourly-before-window',
+          title: 'Hydrate',
+          scheduledAt: new Date(2026, 2, 1, 6, 30, 0),
+          status: ReminderStatus.PENDING,
+          recurrenceRule: 'FREQ=HOURLY;INTERVAL=2;BYMINUTE=30;BYSECOND=0',
+        },
+        '09:00',
+        '22:00',
+        new Date(2026, 2, 1, 5, 0, 0)
+      )
+
+      expect(resolved.getTime()).toBe(new Date(2026, 2, 1, 9, 30, 0).getTime())
+    })
+
+    it('matches the windowed notification projection for past-due hourly reminders', () => {
+      const reminder = {
+        id: 'hourly-past-due',
+        title: 'Hydrate',
+        scheduledAt: new Date(2026, 2, 1, 6, 30, 0),
+        status: ReminderStatus.PENDING,
+        recurrenceRule: 'FREQ=HOURLY;INTERVAL=2;BYMINUTE=30;BYSECOND=0',
+      }
+      const now = new Date(2026, 2, 1, 23, 45, 0)
+
+      const displayAt = resolveReminderDisplayScheduledAt(reminder, '09:00', '22:00', now)
+      const windowedAt = resolveNotificationWindowedAt(reminder, '09:00', '22:00', now)
+
+      expect(windowedAt).toBeDefined()
+      expect(displayAt.getTime()).toBe(windowedAt!.getTime())
+    })
+
+    it('keeps non-hourly reminders on their stored scheduledAt', () => {
+      const scheduledAt = new Date(2026, 2, 1, 6, 30, 0)
+      const resolved = resolveReminderDisplayScheduledAt(
+        {
+          id: 'daily-reminder',
+          title: 'Hydrate',
+          scheduledAt,
+          status: ReminderStatus.PENDING,
+          recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+        },
+        '09:00',
+        '22:00',
+        new Date(2026, 2, 1, 5, 0, 0)
+      )
+
+      expect(resolved.getTime()).toBe(scheduledAt.getTime())
+    })
+
+    it('keeps non-pending hourly reminders on their stored scheduledAt', () => {
+      const scheduledAt = new Date(2026, 2, 1, 6, 30, 0)
+      const resolved = resolveReminderDisplayScheduledAt(
+        {
+          id: 'sent-hourly',
+          title: 'Hydrate',
+          scheduledAt,
+          status: ReminderStatus.SENT,
+          recurrenceRule: 'FREQ=HOURLY;INTERVAL=2;BYMINUTE=30;BYSECOND=0',
+        },
+        '09:00',
+        '22:00',
+        new Date(2026, 2, 1, 5, 0, 0)
+      )
+
+      expect(resolved.getTime()).toBe(scheduledAt.getTime())
     })
   })
 

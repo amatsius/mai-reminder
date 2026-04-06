@@ -14,6 +14,8 @@ const i18n = createI18n({
         inMinutes: 'in {n}m',
         inHours: 'in {n}h',
         inDays: 'in {n}d',
+        edit: 'Edit',
+        delete: 'Delete',
       },
     },
   },
@@ -76,5 +78,23 @@ describe('ReminderColumnActions.vue', () => {
     await nextTick()
 
     expect(badge.text()).toContain('Past')
+  })
+
+  it('counts down to the projected next trigger time passed by the parent UI', () => {
+    const now = new Date(2026, 0, 1, 20, 45, 0)
+    vi.setSystemTime(now)
+
+    const wrapper = mount(ReminderColumnActions, {
+      props: {
+        scheduledAt: new Date(2026, 0, 2, 9, 30, 0),
+        showDelete: true,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    expect(wrapper.find('.countdown-badge').text()).toContain('in 13h')
   })
 })

@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { Pinia, createPinia, setActivePinia } from 'pinia'
 import { createI18n } from 'vue-i18n'
 import ReminderList from '../src/components/ReminderList.vue'
 import { useReminderStore } from '../src/stores/reminder'
+import { useSettingsStore } from '../src/stores/settings'
 import {
   ReminderLanguage,
   ReminderSource,
@@ -19,6 +20,11 @@ const i18n = createI18n({
       reminder: {
         noReminders: 'No reminders yet',
         recurring: 'Recurring',
+        once: 'Once',
+        edit: 'Edit',
+        delete: 'Delete',
+        addPriority: 'Add priority',
+        removePriority: 'Remove priority',
         repeatsEvery: {
           mo: 'Repeats every Monday',
           tu: 'Repeats every Tuesday',
@@ -30,6 +36,11 @@ const i18n = createI18n({
         },
         repeatsWeeklyOnDays: 'Repeats weekly on {days}',
         repeatsEveryNHours: 'Repeats every {count} hours',
+        repeatsHourly: 'Repeats hourly',
+        inMinutes: 'in {n}m',
+        inHours: 'in {n}h',
+        inDays: 'in {n}d',
+        past: 'Past',
         weekdays: {
           mo: 'Monday',
         },
@@ -44,6 +55,10 @@ describe('ReminderList.vue (E3-01)', () => {
   beforeEach(() => {
     pinia = createPinia()
     setActivePinia(pinia)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   const commonStubs = {
@@ -293,5 +308,46 @@ describe('ReminderList.vue (E3-01)', () => {
 
     expect(wrapper.emitted('togglePriority')).toBeTruthy()
     expect(wrapper.emitted('togglePriority')![0][0]).toEqual(store.reminders[0])
+  })
+
+  it('shows pending hourly reminders at their projected trigger time and projected filter day', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 0, 1, 20, 45, 0))
+
+    const store = useReminderStore()
+    const settingsStore = useSettingsStore()
+    settingsStore.hourlyReminderStartTime = '09:00'
+    settingsStore.hourlyReminderEndTime = '22:00'
+    settingsStore.timeFormat = '24h'
+
+    store.reminders = [
+      {
+        id: 'hourly-next-day',
+        title: 'Hydrate',
+        originalText: 'hydrate every hour',
+        language: ReminderLanguage.EN,
+        scheduledAt: new Date(2026, 0, 1, 23, 30, 0),
+        source: ReminderSource.TEXT,
+        parserMode: ReminderParserMode.LOCAL,
+        status: ReminderStatus.PENDING,
+        recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=30;BYSECOND=0',
+        createdAt: new Date(2026, 0, 1, 20, 0, 0),
+        updatedAt: new Date(2026, 0, 1, 20, 0, 0),
+      },
+    ]
+
+    const wrapper = mount(ReminderList, {
+      props: {
+        filterDate: new Date(2026, 0, 2, 12, 0, 0),
+      },
+      global: {
+        plugins: [pinia, i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    expect(wrapper.find('[data-test="reminder-item"]').exists()).toBe(true)
+    expect(wrapper.find('.time').text()).toBe('09:30')
+    expect(wrapper.find('[data-test="reminder-actions-col"]').text()).toContain('in 13h')
   })
 })

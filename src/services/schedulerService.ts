@@ -1,5 +1,6 @@
 import { RRule } from 'rrule'
-import type { ReminderStatus } from '../types/reminder'
+import { ReminderStatus } from '../types/reminder'
+import type { Reminder } from '../types/reminder'
 import { isHourlyRule, snapToHourlyWindow } from '../utils/hourlyRecurrence'
 
 export interface SchedulerReminder {
@@ -147,4 +148,19 @@ export function resolveNotificationWindowedAt(
   const interval = intervalMatch ? Number(intervalMatch[1]) : 1
 
   return snapToHourlyWindow(base, windowStart, windowEnd, interval)
+}
+
+export function resolveReminderDisplayScheduledAt(
+  reminder: Pick<Reminder, 'id' | 'title' | 'scheduledAt' | 'status' | 'recurrenceRule'>,
+  windowStart: string,
+  windowEnd: string,
+  now: Date = new Date()
+): Date {
+  if (reminder.status !== ReminderStatus.PENDING || !isHourlyRule(reminder.recurrenceRule)) {
+    return reminder.scheduledAt
+  }
+
+  return (
+    resolveNotificationWindowedAt(reminder, windowStart, windowEnd, now) ?? reminder.scheduledAt
+  )
 }

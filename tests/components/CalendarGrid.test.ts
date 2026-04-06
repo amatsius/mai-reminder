@@ -1,7 +1,9 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { createI18n } from 'vue-i18n'
 import CalendarGrid from '../../src/components/CalendarGrid.vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { useSettingsStore } from '../../src/stores/settings'
 import {
   ReminderLanguage,
   ReminderParserMode,
@@ -35,6 +37,10 @@ const i18n = createI18n({
 })
 
 describe('CalendarGrid.vue', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   const dummyReminder: Reminder = {
     id: '1',
     title: 'Test',
@@ -49,9 +55,12 @@ describe('CalendarGrid.vue', () => {
   }
 
   it('renders without errors', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
     const wrapper = mount(CalendarGrid, {
       global: {
-        plugins: [i18n],
+        plugins: [pinia, i18n],
       },
       props: {
         reminders: [],
@@ -62,9 +71,12 @@ describe('CalendarGrid.vue', () => {
   })
 
   it('computes attributes based on reminders', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
     const wrapper = mount(CalendarGrid, {
       global: {
-        plugins: [i18n],
+        plugins: [pinia, i18n],
       },
       props: {
         reminders: [dummyReminder],
@@ -81,10 +93,47 @@ describe('CalendarGrid.vue', () => {
     expect(attrs[0].dates[0]).toEqual(expectedDate)
   })
 
-  it('emits update:modelValue when a day is clicked', async () => {
+  it('projects hourly recurring reminders onto the day they would actually trigger', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 0, 1, 20, 45, 0))
+
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const settingsStore = useSettingsStore()
+    settingsStore.hourlyReminderStartTime = '09:00'
+    settingsStore.hourlyReminderEndTime = '22:00'
+
+    const hourlyReminder: Reminder = {
+      ...dummyReminder,
+      id: 'hourly-next-day',
+      scheduledAt: new Date(2026, 0, 1, 23, 30, 0),
+      status: ReminderStatus.PENDING,
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=30;BYSECOND=0',
+    }
+
     const wrapper = mount(CalendarGrid, {
       global: {
-        plugins: [i18n],
+        plugins: [pinia, i18n],
+      },
+      props: {
+        reminders: [hourlyReminder],
+        modelValue: null,
+      },
+    })
+
+    const vm = wrapper.vm as unknown as { attributes: { dot: string; dates: Date[] }[] }
+    const attrs = vm.attributes
+    expect(attrs.length).toBe(1)
+    expect(attrs[0].dates[0]).toEqual(new Date(new Date(2026, 0, 2, 9, 30, 0).toDateString()))
+  })
+
+  it('emits update:modelValue when a day is clicked', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const wrapper = mount(CalendarGrid, {
+      global: {
+        plugins: [pinia, i18n],
       },
       props: {
         reminders: [],

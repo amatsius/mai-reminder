@@ -14,33 +14,33 @@
     <ion-list v-else class="modern-list">
       <ion-item
         v-for="reminder in displayedReminders"
-        :key="reminder.id"
+        :key="reminder.reminder.id"
         data-test="reminder-item"
         class="reminder-item-card"
-        :class="{ 'highlight-missed': highlightedIds.has(reminder.id) }"
+        :class="{ 'highlight-missed': highlightedIds.has(reminder.reminder.id) }"
         lines="none"
       >
         <div class="reminder-grid">
           <div class="reminder-row-top">
             <ReminderColumnDateTime
               class="grid-col-datetime"
-              :scheduled-at="reminder.scheduledAt"
+              :scheduled-at="reminder.displayScheduledAt"
             />
-            <ReminderColumnTitle class="grid-col-title" :title="reminder.title" />
+            <ReminderColumnTitle class="grid-col-title" :title="reminder.reminder.title" />
             <button
               class="priority-flag-btn"
-              :class="{ 'is-priority': reminder.priority }"
+              :class="{ 'is-priority': reminder.reminder.priority }"
               data-test="priority-flag"
               :aria-label="
-                reminder.priority
+                reminder.reminder.priority
                   ? t('reminder.removePriority', 'Remove priority')
                   : t('reminder.addPriority', 'Add priority')
               "
-              :aria-pressed="reminder.priority"
-              @click.stop="emit('togglePriority', reminder)"
+              :aria-pressed="reminder.reminder.priority"
+              @click.stop="emit('togglePriority', reminder.reminder)"
             >
               <ion-icon
-                :icon="reminder.priority ? star : starOutline"
+                :icon="reminder.reminder.priority ? star : starOutline"
                 aria-hidden="true"
               ></ion-icon>
             </button>
@@ -48,14 +48,14 @@
           <div class="reminder-row-bottom">
             <ReminderColumnRecurrence
               class="grid-col-recurrence"
-              :recurrence-rule="reminder.recurrenceRule"
+              :recurrence-rule="reminder.reminder.recurrenceRule"
             />
             <ReminderColumnActions
               class="grid-col-actions"
-              :scheduled-at="reminder.scheduledAt"
+              :scheduled-at="reminder.displayScheduledAt"
               :show-delete="store.filterStatus === ReminderStatus.PENDING"
-              @edit="emit('edit', reminder)"
-              @cancel="emit('cancel', reminder)"
+              @edit="emit('edit', reminder.reminder)"
+              @cancel="emit('cancel', reminder.reminder)"
             />
           </div>
         </div>
@@ -65,12 +65,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { IonList, IonItem, IonIcon } from '@ionic/vue'
 import { notificationsOffOutline, star, starOutline } from 'ionicons/icons'
 import { useReminderStore } from '../stores/reminder'
+import { useSettingsStore } from '../stores/settings'
 import { ReminderStatus } from '../types/reminder'
-import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { resolveReminderDisplayScheduledAt } from '../services/schedulerService'
 
 import type { Reminder } from '../types/reminder'
 
@@ -82,6 +84,9 @@ import ReminderColumnActions from './ReminderColumnActions.vue'
 
 const { t } = useI18n()
 const store = useReminderStore()
+const settingsStore = useSettingsStore()
+const now = ref(new Date())
+let timer: ReturnType<typeof setInterval> | null = null
 
 const emit = defineEmits<{
   (e: 'edit', reminder: Reminder): void
@@ -94,12 +99,44 @@ const props = defineProps<{
   compactEmptyState?: boolean
 }>()
 
-const displayedReminders = computed(() => {
-  if (!props.filterDate) return store.filteredReminders
+onMounted(() => {
+  timer = setInterval(() => {
+    now.value = new Date()
+  }, 30000)
+})
 
-  return store.filteredReminders.filter((r) => {
-    const scheduledAt = r.scheduledAt instanceof Date ? r.scheduledAt : new Date(r.scheduledAt)
-    return scheduledAt.toDateString() === props.filterDate!.toDateString()
+onUnmounted(() => {
+  if (timer) {
+    clearInterval(timer)
+  }
+})
+
+const displayedReminders = computed(() => {
+  const remindersWithDisplayTime = store.filteredReminders
+    .map((reminder) => ({
+      reminder,
+      displayScheduledAt: resolveReminderDisplayScheduledAt(
+        reminder,
+        settingsStore.hourlyReminderStartTime,
+        settingsStore.hourlyReminderEndTime,
+        now.value
+      ),
+    }))
+    .sort((a, b) => {
+      const timeA = a.displayScheduledAt.getTime()
+      const timeB = b.displayScheduledAt.getTime()
+      if (store.filterStatus === ReminderStatus.SENT) {
+        return timeB - timeA
+      }
+      return timeA - timeB
+    })
+
+  if (!props.filterDate) {
+    return remindersWithDisplayTime
+  }
+
+  return remindersWithDisplayTime.filter((entry) => {
+    return entry.displayScheduledAt.toDateString() === props.filterDate!.toDateString()
   })
 })
 

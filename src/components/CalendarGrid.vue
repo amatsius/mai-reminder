@@ -24,8 +24,11 @@ import { useI18n } from 'vue-i18n'
 import type { Reminder } from '../types/reminder'
 import { DatePicker as VDatePicker } from 'v-calendar'
 import 'v-calendar/style.css'
+import { useSettingsStore } from '../stores/settings'
+import { resolveReminderDisplayScheduledAt } from '../services/schedulerService'
 
 const { t, locale } = useI18n()
+const settingsStore = useSettingsStore()
 
 const props = defineProps<{
   reminders: Reminder[]
@@ -57,6 +60,7 @@ const onDayClick = (day: { date: Date }) => {
 }
 
 const isDark = ref(false)
+const now = ref(new Date())
 
 const updateDarkMode = () => {
   isDark.value = document.body.classList.contains('dark')
@@ -65,9 +69,13 @@ const updateDarkMode = () => {
 // Store references for cleanup
 let mediaQuery: MediaQueryList | null = null
 let observer: MutationObserver | null = null
+let timer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   updateDarkMode()
+  timer = setInterval(() => {
+    now.value = new Date()
+  }, 30000)
 
   // Listen for system theme changes
   mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -94,6 +102,9 @@ onUnmounted(() => {
   if (observer) {
     observer.disconnect()
   }
+  if (timer) {
+    clearInterval(timer)
+  }
 })
 
 const attributes = computed(() => {
@@ -105,7 +116,12 @@ const attributes = computed(() => {
     ...new Set(
       props.reminders
         .map((r) => {
-          const d = r.scheduledAt instanceof Date ? r.scheduledAt : new Date(r.scheduledAt)
+          const d = resolveReminderDisplayScheduledAt(
+            r,
+            settingsStore.hourlyReminderStartTime,
+            settingsStore.hourlyReminderEndTime,
+            now.value
+          )
           if (isNaN(d.getTime())) return null
           return d.toDateString()
         })
