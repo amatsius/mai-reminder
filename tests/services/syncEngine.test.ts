@@ -230,6 +230,75 @@ describe('SyncEngine', () => {
       )
     })
 
+    it('pushes advanced pending hourly reminder updates to cloud', async () => {
+      const remoteReminder = makeReminder({
+        id: 'rem-hourly-advanced',
+        scheduledAt: new Date('2024-01-02T06:00:00Z'),
+        recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0',
+        updatedAt: new Date('2024-01-01T10:00:00Z'),
+      })
+      const localReminder = makeReminder({
+        id: 'rem-hourly-advanced',
+        scheduledAt: new Date('2024-01-02T09:00:00Z'),
+        recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0',
+        status: ReminderStatus.PENDING,
+        updatedAt: new Date('2024-01-01T14:00:00Z'),
+      })
+
+      ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([
+        makeRemoteRow(remoteReminder),
+      ])
+      ;(reminderAdapter.list as ReturnType<typeof vi.fn>).mockResolvedValue([localReminder])
+
+      await syncEngine.sync()
+
+      expect(syncBackendClient.pushReminder).toHaveBeenCalledWith(
+        'user-123',
+        expect.objectContaining({
+          reminderId: 'rem-hourly-advanced',
+          isDeleted: false,
+        })
+      )
+
+      const pushCall = (syncBackendClient.pushReminder as ReturnType<typeof vi.fn>).mock.calls[0]
+      const payload = pushCall?.[1] as { encryptedParams: string }
+      const envelope = JSON.parse(payload.encryptedParams) as { ciphertextBase64: string }
+      const pushedReminder = JSON.parse(
+        Buffer.from(envelope.ciphertextBase64, 'base64').toString('utf-8')
+      ) as { status: string; scheduledAt: string }
+
+      expect(pushedReminder.status).toBe(ReminderStatus.PENDING)
+      expect(pushedReminder.scheduledAt).toBe(localReminder.scheduledAt.toISOString())
+    })
+
+    it('pushes cancelled local reminder as a tombstone when local duplicate cleanup is newer', async () => {
+      const remoteReminder = makeReminder({
+        id: 'rem-duplicate-cleanup',
+        status: ReminderStatus.PENDING,
+        updatedAt: new Date('2024-01-01T10:00:00Z'),
+      })
+      const localReminder = makeReminder({
+        id: 'rem-duplicate-cleanup',
+        status: ReminderStatus.CANCELLED,
+        updatedAt: new Date('2024-01-01T14:00:00Z'),
+      })
+
+      ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([
+        makeRemoteRow(remoteReminder),
+      ])
+      ;(reminderAdapter.list as ReturnType<typeof vi.fn>).mockResolvedValue([localReminder])
+
+      await syncEngine.sync()
+
+      expect(syncBackendClient.pushReminder).toHaveBeenCalledWith(
+        'user-123',
+        expect.objectContaining({
+          reminderId: 'rem-duplicate-cleanup',
+          isDeleted: true,
+        })
+      )
+    })
+
     it('pushes new local reminder that does not exist in the cloud', async () => {
       const localReminder = makeReminder({ id: 'rem-local-only' })
       ;(syncBackendClient.fetchReminders as ReturnType<typeof vi.fn>).mockResolvedValue([])

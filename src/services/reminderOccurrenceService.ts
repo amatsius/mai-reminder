@@ -13,6 +13,27 @@ export interface TriggerTransitionResult {
   nextReminder?: Reminder
 }
 
+export async function advanceReminderOccurrenceInPlace(
+  reminder: Reminder,
+  repository: Pick<IReminderRepository, 'update'>,
+  nextScheduledAt: Date,
+  isSync: boolean = false
+): Promise<Reminder> {
+  const updatePayload: Partial<ReminderInput> = {
+    scheduledAt: nextScheduledAt,
+    status: ReminderStatus.PENDING,
+    recurrenceRule: reminder.recurrenceRule,
+    lastAction: undefined,
+    lastActionAt: undefined,
+  }
+
+  if (isSync) {
+    updatePayload._isSync = true
+  }
+
+  return repository.update(reminder.id, updatePayload)
+}
+
 export async function applyTriggeredReminderTransition(
   reminder: Reminder,
   repository: TriggerTransitionRepository,

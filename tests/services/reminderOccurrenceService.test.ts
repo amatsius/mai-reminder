@@ -6,7 +6,10 @@ import {
   ReminderStatus,
   type Reminder,
 } from '../../src/types/reminder'
-import { applyTriggeredReminderTransition } from '../../src/services/reminderOccurrenceService'
+import {
+  advanceReminderOccurrenceInPlace,
+  applyTriggeredReminderTransition,
+} from '../../src/services/reminderOccurrenceService'
 
 function makeReminder(overrides: Partial<Reminder> = {}): Reminder {
   const now = new Date('2026-03-01T09:00:00.000Z')
@@ -27,6 +30,36 @@ function makeReminder(overrides: Partial<Reminder> = {}): Reminder {
 }
 
 describe('applyTriggeredReminderTransition', () => {
+  it('advances a recurring reminder in place without marking it as sent', async () => {
+    const reminder = makeReminder()
+    const nextScheduledAt = new Date('2026-03-01T11:00:00.000Z')
+    const update = vi.fn().mockResolvedValue({
+      ...reminder,
+      scheduledAt: nextScheduledAt,
+      status: ReminderStatus.PENDING,
+      lastAction: undefined,
+      lastActionAt: undefined,
+    })
+
+    const result = await advanceReminderOccurrenceInPlace(
+      reminder,
+      { update },
+      nextScheduledAt,
+      true
+    )
+
+    expect(update).toHaveBeenCalledWith(reminder.id, {
+      scheduledAt: nextScheduledAt,
+      status: ReminderStatus.PENDING,
+      recurrenceRule: reminder.recurrenceRule,
+      lastAction: undefined,
+      lastActionAt: undefined,
+      _isSync: true,
+    })
+    expect(result.status).toBe(ReminderStatus.PENDING)
+    expect(result.scheduledAt.toISOString()).toBe(nextScheduledAt.toISOString())
+  })
+
   it('marks a non-recurring reminder as sent without creating a new one', async () => {
     const reminder = makeReminder({ recurrenceRule: undefined })
     const update = vi.fn().mockResolvedValue({ ...reminder, status: ReminderStatus.SENT })

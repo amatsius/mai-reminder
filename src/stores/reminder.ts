@@ -4,7 +4,10 @@ import { ReminderAction, ReminderStatus } from '../types/reminder'
 import { ref, computed, watch } from 'vue'
 import { isCapacitorNative } from '../utils/platform'
 import { LocalNotifications } from '@capacitor/local-notifications'
-import { applyTriggeredReminderTransition } from '../services/reminderOccurrenceService'
+import {
+  advanceReminderOccurrenceInPlace,
+  applyTriggeredReminderTransition,
+} from '../services/reminderOccurrenceService'
 import { calcSnoozedAt, SNOOZE_ACTION_TO_MS } from '../services/snoozeService'
 import type { SnoozeAction } from '../services/snoozeService'
 import { syncEngine } from '../services/syncEngine'
@@ -97,6 +100,21 @@ export const useReminderStore = defineStore('reminder', () => {
 
   function deleteReminder(id: string) {
     reminders.value = reminders.value.filter((r) => r.id !== id)
+  }
+
+  function findFuturePendingSeriesOccurrence(
+    reminder: Reminder,
+    referenceNow: Date
+  ): Reminder | undefined {
+    const baseId = getReminderSeriesBaseId(reminder.id)
+    return reminders.value
+      .filter((item) => {
+        if (item.id === reminder.id) return false
+        if (item.status !== ReminderStatus.PENDING) return false
+        if (item.scheduledAt.getTime() <= referenceNow.getTime()) return false
+        return getReminderSeriesBaseId(item.id) === baseId
+      })
+      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())[0]
   }
 
   async function collapseRecurringPendingDuplicates(
@@ -282,15 +300,33 @@ export const useReminderStore = defineStore('reminder', () => {
             windowEnd,
             now
           )
+          const isHourlyOutsideWindow =
+            isHourlyRule(current.recurrenceRule) &&
+            !isWithinHourlyWindow(now, windowStart, windowEnd)
 
           if (nextScheduledAt && nextScheduledAt.getTime() > now.getTime()) {
-            const baseId = getReminderSeriesBaseId(current.id)
-            const existingAdvanced = reminders.value.find((item) => {
-              if (item.id === current.id) return false
-              if (item.status !== ReminderStatus.PENDING) return false
-              if (item.scheduledAt.getTime() <= now.getTime()) return false
-              return getReminderSeriesBaseId(item.id) === baseId
-            })
+            const existingAdvanced = findFuturePendingSeriesOccurrence(current, now)
+
+            if (isHourlyOutsideWindow) {
+              if (existingAdvanced) {
+                const cancelledDuplicate = await reminderAdapter.update(existingAdvanced.id, {
+                  status: ReminderStatus.CANCELLED,
+                  _isSync: true,
+                })
+                addReminder(cancelledDuplicate)
+                changedCount += 1
+              }
+
+              const advancedCurrent = await advanceReminderOccurrenceInPlace(
+                current,
+                reminderAdapter,
+                nextScheduledAt,
+                true
+              )
+              addReminder(advancedCurrent)
+              changedCount += 1
+              continue
+            }
 
             // Another future pending occurrence already exists.
             // Keep that pending one, and mark the overdue record as the missed sent instance.
@@ -654,7 +690,32 @@ export const useReminderStore = defineStore('reminder', () => {
         // Ensure any pre-scheduled OS notification for this skipped hourly
         // occurrence does not fire later when we are outside window.
         await notificationService.cancel(dueHourly.id)
-        await processTriggeredReminder(dueHourly.id)
+        const nextScheduledAt = resolveNotificationWindowedAt(
+          dueHourly,
+          windowStart,
+          windowEnd,
+          now
+        )
+
+        if (nextScheduledAt && nextScheduledAt.getTime() > now.getTime()) {
+          const { reminderAdapter } = await import('../services/reminderAdapter')
+          const existingAdvanced = findFuturePendingSeriesOccurrence(dueHourly, now)
+          if (existingAdvanced) {
+            const cancelledDuplicate = await reminderAdapter.update(existingAdvanced.id, {
+              status: ReminderStatus.CANCELLED,
+            })
+            addReminder(cancelledDuplicate)
+          }
+
+          const advancedReminder = await advanceReminderOccurrenceInPlace(
+            dueHourly,
+            reminderAdapter,
+            nextScheduledAt
+          )
+          addReminder(advancedReminder)
+        } else {
+          await processTriggeredReminder(dueHourly.id)
+        }
         safetyCounter += 1
       }
       if (safetyCounter === maxTransitionsPerPass) {

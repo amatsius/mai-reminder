@@ -504,15 +504,103 @@ describe('reminder store duplicate guard', () => {
     expect(missedIds).not.toContain('r-recent')
   })
 
+  it('advances overdue hourly reminder outside window in place on startup', async () => {
+    vi.useFakeTimers()
+    const now = new Date(2026, 2, 6, 23, 15, 0)
+    const overdueAt = new Date(2026, 2, 6, 21, 0, 0)
+    const expectedNext = new Date(2026, 2, 7, 9, 0, 0)
+    vi.setSystemTime(now)
+
+    const recurring = {
+      ...makeReminder('r-startup-hourly-outside-window', 'Hydrate'),
+      scheduledAt: overdueAt,
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0',
+    }
+
+    adapterListMock.mockResolvedValue([recurring])
+    adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => ({
+      ...recurring,
+      ...changes,
+      status: changes.status ?? recurring.status,
+      scheduledAt:
+        changes.scheduledAt instanceof Date ? changes.scheduledAt : recurring.scheduledAt,
+      updatedAt: now,
+    }))
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
+    expect(adapterCreateMock).not.toHaveBeenCalled()
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      recurring.id,
+      expect.objectContaining({
+        scheduledAt: expectedNext,
+        status: ReminderStatus.PENDING,
+        recurrenceRule: recurring.recurrenceRule,
+        _isSync: true,
+      })
+    )
+    expect(store.reminders).toHaveLength(1)
+    expect(store.reminders[0].id).toBe(recurring.id)
+    expect(store.reminders[0].status).toBe(ReminderStatus.PENDING)
+    expect(store.reminders[0].scheduledAt.getTime()).toBe(expectedNext.getTime())
+    expect(store.sentMissedCount).toBe(0)
+    expect(store.missedReminderIds.size).toBe(0)
+  })
+
+  it('advances overdue hourly reminder outside window in place during silent mobile catch-up', async () => {
+    vi.useFakeTimers()
+    const now = new Date(2026, 2, 6, 23, 15, 0)
+    const overdueAt = new Date(2026, 2, 6, 21, 0, 0)
+    const expectedNext = new Date(2026, 2, 7, 9, 0, 0)
+    vi.setSystemTime(now)
+
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        Capacitor: {
+          isNativePlatform: () => true,
+        },
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    const recurring = {
+      ...makeReminder('r-runtime-hourly-outside-window', 'Hydrate'),
+      scheduledAt: overdueAt,
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0',
+    }
+
+    adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => ({
+      ...recurring,
+      ...changes,
+      status: changes.status ?? recurring.status,
+      scheduledAt:
+        changes.scheduledAt instanceof Date ? changes.scheduledAt : recurring.scheduledAt,
+      updatedAt: now,
+    }))
+
+    const store = useReminderStore()
+    store.addReminder(recurring)
+    store.initialize()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(adapterCreateMock).not.toHaveBeenCalled()
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      recurring.id,
+      expect.objectContaining({
+        scheduledAt: expectedNext,
+        status: ReminderStatus.PENDING,
+        recurrenceRule: recurring.recurrenceRule,
+      })
+    )
+    expect(store.reminders).toHaveLength(1)
+    expect(store.reminders[0].status).toBe(ReminderStatus.PENDING)
+    expect(store.reminders[0].scheduledAt.getTime()).toBe(expectedNext.getTime())
+    expect(store.sentMissedCount).toBe(0)
+  })
+
   it.each([
-    {
-      name: 'hourly',
-      scheduledAt: '2026-03-06T09:00:00.000Z',
-      recurrenceRule: 'FREQ=HOURLY;INTERVAL=2;BYMINUTE=0;BYSECOND=0',
-      now: '2026-03-06T10:30:00.000Z',
-      expectedLatest: '2026-03-06T09:00:00.000Z',
-      expectedNext: '2026-03-06T11:00:00.000Z',
-    },
     {
       name: 'daily',
       scheduledAt: '2026-03-05T10:00:00.000Z',
@@ -735,6 +823,73 @@ describe('reminder store duplicate guard', () => {
     )
   })
 
+  it('keeps the current hourly reminder and cancels an already-advanced future duplicate outside window', async () => {
+    vi.useFakeTimers()
+    const now = new Date(2026, 2, 6, 23, 15, 0)
+    const overdueAt = new Date(2026, 2, 6, 21, 0, 0)
+    const expectedNext = new Date(2026, 2, 7, 9, 0, 0)
+    vi.setSystemTime(now)
+
+    const overdueCurrent = {
+      ...makeReminder('series-hourly-outside-window', 'Hydrate'),
+      scheduledAt: overdueAt,
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0',
+    }
+    const existingFuture = {
+      ...makeReminder('series-hourly-outside-window-next-1', 'Hydrate'),
+      scheduledAt: expectedNext,
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0',
+      status: ReminderStatus.PENDING,
+    }
+
+    adapterListMock.mockResolvedValue([overdueCurrent, existingFuture])
+    adapterUpdateMock.mockImplementation(async (id: string, changes: Partial<Reminder>) => {
+      if (id === existingFuture.id) {
+        return {
+          ...existingFuture,
+          ...changes,
+          status: ReminderStatus.CANCELLED,
+          updatedAt: now,
+        }
+      }
+
+      return {
+        ...overdueCurrent,
+        ...changes,
+        status: changes.status ?? overdueCurrent.status,
+        scheduledAt:
+          changes.scheduledAt instanceof Date ? changes.scheduledAt : overdueCurrent.scheduledAt,
+        updatedAt: now,
+      }
+    })
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+
+    expect(adapterCreateMock).not.toHaveBeenCalled()
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      existingFuture.id,
+      expect.objectContaining({
+        status: ReminderStatus.CANCELLED,
+        _isSync: true,
+      })
+    )
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      overdueCurrent.id,
+      expect.objectContaining({
+        scheduledAt: expectedNext,
+        status: ReminderStatus.PENDING,
+        _isSync: true,
+      })
+    )
+
+    const active = store.reminders.filter((item) => item.status === ReminderStatus.PENDING)
+    expect(active).toHaveLength(1)
+    expect(active[0].id).toBe(overdueCurrent.id)
+    expect(active[0].scheduledAt.getTime()).toBe(expectedNext.getTime())
+    expect(store.sentMissedCount).toBe(0)
+  })
+
   it('does not branch recurrence from pending reminders with historical missed suffix ids', async () => {
     vi.useFakeTimers()
     const now = new Date('2026-03-06T10:30:00.000Z')
@@ -925,20 +1080,22 @@ describe('reminder store duplicate guard', () => {
     expect(store.reminders[0].status).toBe(ReminderStatus.SENT)
   })
 
-  it('runs cloud sync before and after startup reconciliation when cloud sync is enabled', async () => {
+  it('runs cloud sync before and after hourly outside-window startup advancement when cloud sync is enabled', async () => {
     vi.useFakeTimers()
-    const now = new Date('2026-03-06T10:30:00.000Z')
+    const now = new Date(2026, 2, 6, 23, 15, 0)
+    const expectedNext = new Date(2026, 2, 7, 9, 0, 0)
     vi.setSystemTime(now)
 
     const order: string[] = []
     const recurring = {
       ...makeReminder('r-startup-sync', 'Sync me'),
-      scheduledAt: new Date('2026-03-06T10:00:00.000Z'),
-      recurrenceRule: 'FREQ=DAILY;INTERVAL=1',
+      scheduledAt: new Date(2026, 2, 6, 21, 0, 0),
+      recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0',
     }
     const reconciled = {
       ...recurring,
-      scheduledAt: new Date('2026-03-07T10:00:00.000Z'),
+      scheduledAt: expectedNext,
+      status: ReminderStatus.PENDING,
       updatedAt: now,
     }
 
@@ -973,6 +1130,55 @@ describe('reminder store duplicate guard', () => {
     await store.reconcileStartupReminders()
 
     expect(order).toEqual(['sync', 'list', 'update', 'sync', 'list'])
+    expect(adapterCreateMock).not.toHaveBeenCalled()
+    expect(adapterUpdateMock).toHaveBeenCalledWith(
+      recurring.id,
+      expect.objectContaining({
+        scheduledAt: expectedNext,
+        status: ReminderStatus.PENDING,
+        _isSync: true,
+      })
+    )
+  })
+
+  it('is idempotent across repeated hourly outside-window reconciliation runs', async () => {
+    vi.useFakeTimers()
+    const now = new Date(2026, 2, 6, 23, 15, 0)
+    const expectedNext = new Date(2026, 2, 7, 9, 0, 0)
+    vi.setSystemTime(now)
+
+    const state = {
+      current: {
+        ...makeReminder('r-startup-idempotent-hourly', 'Hydrate'),
+        scheduledAt: new Date(2026, 2, 6, 21, 0, 0),
+        recurrenceRule: 'FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0',
+      },
+    }
+
+    adapterListMock.mockImplementation(async () => [state.current])
+    adapterUpdateMock.mockImplementation(async (_id: string, changes: Partial<Reminder>) => {
+      state.current = {
+        ...state.current,
+        ...changes,
+        status: changes.status ?? state.current.status,
+        scheduledAt:
+          changes.scheduledAt instanceof Date ? changes.scheduledAt : state.current.scheduledAt,
+        updatedAt: now,
+      }
+      return state.current
+    })
+
+    const store = useReminderStore()
+    await store.reconcileStartupReminders()
+    await store.reconcileStartupReminders()
+
+    expect(adapterUpdateMock).toHaveBeenCalledTimes(1)
+    expect(adapterCreateMock).not.toHaveBeenCalled()
+    expect(store.reminders).toHaveLength(1)
+    expect(store.reminders[0].id).toBe(state.current.id)
+    expect(store.reminders[0].status).toBe(ReminderStatus.PENDING)
+    expect(store.reminders[0].scheduledAt.getTime()).toBe(expectedNext.getTime())
+    expect(store.sentMissedCount).toBe(0)
   })
 
   it('is idempotent across repeated startup reconciliation runs', async () => {

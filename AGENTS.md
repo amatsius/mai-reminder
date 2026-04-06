@@ -40,7 +40,7 @@ Strictly avoid using `any` in tests or implementation (e.g., use `unknown` or de
 ## Store/Test gotchas
 
 - `useReminderStore().initialize()` is guarded by a module-level `isInitialized` flag. In Vitest, that flag persists across tests unless modules are reloaded, so callback-registration tests can become order-dependent.
-- Startup reconciliation for overdue recurring reminders must follow the same chain model as live triggers (mark current SENT and create the next occurrence). Advancing the current record in place can desync paired devices and spawn duplicate pending instances.
+- Startup reconciliation for overdue recurring reminders normally follows the same chain model as live triggers (mark current SENT and create the next occurrence). Exception: hourly reminders auto-advanced while outside the configured hourly window now update the current record in place as `pending` and sync that updated occurrence to the cloud; keep tests focused on avoiding duplicate future pending instances for that case.
 
 ## Electron scheduler gotchas
 
