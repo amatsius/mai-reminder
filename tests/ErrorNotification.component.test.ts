@@ -12,7 +12,7 @@ const i18n = createI18n({
     en: {
       errors: {
         offline: "You're offline. Using local parser.",
-        rateLimit: 'AI parsing temporarily unavailable. Using local parser.',
+        rateLimit: 'Advanced parsing temporarily unavailable. Using local parser.',
         parseFailure: "Couldn't understand that. Try rephrasing with a specific time.",
         general: 'Something went wrong. Retry or contact support.',
       },
@@ -56,7 +56,7 @@ describe('ErrorNotification.vue (E3-06)', () => {
 
     const toast = wrapper.findComponent(IonToast)
     expect(toast.attributes('message')).toBe(
-      'AI parsing temporarily unavailable. Using local parser.'
+      'Advanced parsing temporarily unavailable. Using local parser.'
     )
     expect(toast.attributes('color')).toBe('warning')
   })

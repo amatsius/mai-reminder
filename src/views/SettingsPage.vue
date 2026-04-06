@@ -46,39 +46,6 @@
         </ion-item>
 
         <ion-item>
-          <ion-label id="parser-mode-label">{{ t('settings.parserMode') }}</ion-label>
-          <ion-toggle
-            slot="end"
-            :checked="settingsStore.isAIParsingEnabled"
-            data-test="ai-toggle"
-            aria-labelledby="parser-mode-label"
-            @ion-change="onParserModeChange"
-          />
-        </ion-item>
-        <ion-item
-          v-show="settingsStore.isAIParsingEnabled"
-          key="api-key-item"
-          data-test="api-key-item"
-        >
-          <ion-label position="stacked">{{ t('settings.cerebrasApiKey') }}</ion-label>
-          <ion-input
-            type="password"
-            :placeholder="t('settings.apiKeyPlaceholder')"
-            :value="settingsStore.cerebrasApiKey"
-            data-test="api-key-input"
-            @ion-input="onApiKeyInput"
-          />
-        </ion-item>
-        <ion-item
-          v-if="settingsStore.isAIParsingEnabled && !settingsStore.cerebrasApiKey"
-          lines="none"
-        >
-          <ion-note>
-            {{ t('settings.apiKeyMissing') }}
-          </ion-note>
-        </ion-item>
-
-        <ion-item>
           <ion-label id="fast-save-label">{{ t('settings.fastSave') }}</ion-label>
           <ion-toggle
             slot="end"
@@ -253,7 +220,6 @@ import {
   IonSelectOption,
   IonToggle,
   IonInput,
-  IonNote,
   IonButtons,
   IonBackButton,
   IonButton,
@@ -312,19 +278,6 @@ function onLanguageChange(event: CustomEvent) {
 function onTimeFormatChange(event: CustomEvent) {
   const newFormat = event.detail.value as '12h' | '24h'
   settingsStore.setTimeFormat(newFormat)
-}
-
-function onParserModeChange(event: CustomEvent) {
-  const isEnabled = event.detail.checked as boolean
-  const newMode = isEnabled ? 'llm' : 'local'
-  settingsStore.setParserMode(newMode)
-  // Announce change to screen readers
-  announcement.value = isEnabled ? t('settings.aiParsingEnabled') : t('settings.aiParsingDisabled')
-}
-
-function onApiKeyInput(event: CustomEvent) {
-  const value = event.detail.value as string
-  settingsStore.setCerebrasApiKey(value)
 }
 
 function onFastSaveChange(event: CustomEvent) {

@@ -1,13 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { defineComponent, h, computed } from 'vue'
+import { defineComponent, h } from 'vue'
 import { useSettingsStore } from '../src/stores/settings'
 import { isCapacitorNative } from '../src/utils/platform'
 
 vi.mock('../src/utils/platform', () => ({
   isElectron: vi.fn(() => true),
   isCapacitorNative: vi.fn(() => false),
+}))
+
+vi.mock('../src/services/settingsAdapter', () => ({
+  settingsAdapter: {
+    getSetting: vi.fn(async () => null),
+    setSetting: vi.fn(async () => undefined),
+    clearAllSettings: vi.fn(async () => undefined),
+  },
 }))
 
 // Mock Ionic components
@@ -175,17 +183,10 @@ const SettingsPage = defineComponent({
       }
     }
 
-    const onParserModeChange = (event: { detail: { checked: boolean } }) => {
-      const mode = event.detail.checked ? 'llm' : 'local'
-      store.setParserMode(mode)
-    }
-
     return {
       store,
       onLanguageChange,
-      onParserModeChange,
-      languageLabel: computed(() => store.languageLabel),
-      isAIParsingEnabled: computed(() => store.isAIParsingEnabled),
+      languageLabel: store.languageLabel,
     }
   },
   render() {
@@ -214,21 +215,6 @@ const SettingsPage = defineComponent({
             ),
           ]),
 
-          // Parser Mode Section
-          h(IonItem, {}, () => [
-            h(IonLabel, {}, () => 'Use AI Parsing'),
-            h(IonToggle, {
-              checked: this.isAIParsingEnabled,
-              onIonChange: this.onParserModeChange,
-            }),
-          ]),
-          h(IonItem, {}, () =>
-            h(IonNote, {}, () =>
-              this.isAIParsingEnabled
-                ? 'AI parsing provides better natural language understanding'
-                : 'Local parsing works offline but has limited understanding'
-            )
-          ),
           // Hotkey Section
           !isCapacitorNative()
             ? h(IonItem, {}, () => [
@@ -277,13 +263,10 @@ describe('SettingsPage Component (E3-05)', () => {
       expect(options[1].text()).toBe('Russian')
     })
 
-    it('renders parser mode toggle', () => {
+    it('does not render parser mode toggle', () => {
       const wrapper = mount(SettingsPage)
 
-      const toggle = wrapper.find('.toggle')
-      expect(toggle.exists()).toBe(true)
-      expect(toggle.element.tagName).toBe('INPUT')
-      expect((toggle.element as HTMLInputElement).type).toBe('checkbox')
+      expect(wrapper.text()).not.toContain('Use AI Parsing')
     })
   })
 
@@ -312,63 +295,20 @@ describe('SettingsPage Component (E3-05)', () => {
     })
   })
 
-  // ── Parser Mode Toggle ─────────────────────────────────────────────────────
-
-  describe('parser mode toggle', () => {
-    it('reflects AI parsing enabled state', async () => {
-      const store = useSettingsStore()
-      await store.setParserMode('llm')
-
+  describe('parser mode visibility', () => {
+    it('does not render AI parsing controls in settings', () => {
       const wrapper = mount(SettingsPage)
-      const toggle = wrapper.find('.toggle')
 
-      expect((toggle.element as HTMLInputElement).checked).toBe(true)
+      expect(wrapper.text()).not.toContain('Use AI Parsing')
+      expect(wrapper.text()).not.toContain('AI parsing')
+      expect(wrapper.text()).not.toContain('Local parsing works offline')
     })
 
-    it('reflects AI parsing disabled state', async () => {
+    it('keeps local parsing as the default store mode', () => {
       const store = useSettingsStore()
-      await store.setParserMode('local')
 
-      const wrapper = mount(SettingsPage)
-      const toggle = wrapper.find('.toggle')
-
-      expect((toggle.element as HTMLInputElement).checked).toBe(false)
-    })
-
-    it('updates store when toggle is changed', async () => {
-      const wrapper = mount(SettingsPage)
-      const store = useSettingsStore()
-      await store.setParserMode('local')
-
-      const toggle = wrapper.find('.toggle')
-      await toggle.setValue(true)
-      await toggle.trigger('change')
-
-      expect(store.parserMode).toBe('llm')
-    })
-  })
-
-  // ── Helper Text ────────────────────────────────────────────────────────────
-
-  describe('helper text', () => {
-    it('shows AI description when AI parsing is enabled', async () => {
-      const store = useSettingsStore()
-      await store.setParserMode('llm')
-
-      const wrapper = mount(SettingsPage)
-      const note = wrapper.find('.note')
-
-      expect(note.text()).toContain('AI parsing')
-    })
-
-    it('shows local description when AI parsing is disabled', async () => {
-      const store = useSettingsStore()
-      await store.setParserMode('local')
-
-      const wrapper = mount(SettingsPage)
-      const note = wrapper.find('.note')
-
-      expect(note.text()).toContain('Local parsing')
+      expect(store.parserMode).toBe('local')
+      expect(store.isAIParsingEnabled).toBe(false)
     })
   })
 

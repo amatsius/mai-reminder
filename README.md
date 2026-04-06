@@ -1,13 +1,13 @@
 # mai-reminder
 
-A privacy-first, local‑first, multilingual reminder app MVP featuring natural language parsing.
+A privacy-first, local-first, multilingual reminder app MVP featuring natural language parsing.
 
 ## 🚀 Features
 
 - **Natural Language Input:** Create reminders by typing naturally using everyday language.
-- **AI-Powered Parsing:** Uses Cerebras LLM to parse your text (if enabled), with a graceful fallback to a local timezone-aware parser (`chrono-node`) when offline or rate-limited.
+- **Local Natural Language Parsing:** Uses a local timezone-aware parser (`chrono-node`) for everyday reminder creation in supported languages.
 - **Multilingual Support:** English (`en`) and Russian (`ru`) natively supported via `vue-i18n`.
-- **Local-First:** All reminder data is stored locally in a file-based SQLite database. No cloud sync.
+- **Local-First:** Reminder data is stored locally in SQLite, with optional device-to-device Cloud Sync.
 - **Offline Capable:** Full core functionality remains available when offline.
 - **Cross-Platform:** Desktop-first via Electron, with an architecture designed for future mobile support via Capacitor. Built with Ionic Framework + Vue 3.
 
@@ -33,13 +33,11 @@ A privacy-first, local‑first, multilingual reminder app MVP featuring natural 
    ```bash
    npm install
    ```
-3. Set up your environment variables (optional, for LLM parsing):
-   Create a `.env` file referencing `.env.example` and add your Cerebras API key.
-4. Run the development server (browser preview):
+3. Run the development server (browser preview):
    ```bash
    npm run dev
    ```
-5. Or, run the Electron desktop application:
+4. Or, run the Electron desktop application:
    ```bash
    npm start
    ```

@@ -9,7 +9,7 @@ MVP for a **privacy-first, local‑first, multilingual reminder app** with:
 - Single shared codebase
 - Desktop-first support via **Electron** (macOS, Windows)
 - Mobile support via **Capacitor** in MVP Phase 2
-- No backend (except LLM API)
+- Optional sync backend only
 
 ---
 
@@ -39,7 +39,7 @@ MVP for a **privacy-first, local‑first, multilingual reminder app** with:
 
 - `chrono-node` (JavaScript)
 - Locales: English and Russian
-- Used as local parser when LLM parsing is disabled or unavailable
+- Used as the primary parser for reminder creation
 
 ### 3.2 Desktop
 
@@ -104,15 +104,13 @@ MVP for a **privacy-first, local‑first, multilingual reminder app** with:
 ### 6.1 Local JS Parsing (Primary)
 
 - `chrono-node` used for local date/time parsing
-- Triggered when:
-  - LLM mode is turned off by user setting
-  - LLM backend is unavailable
-  - LLM request is rate limited or fails
+- Primary supported parsing path for the product
 
 ### 6.2 LLM Parsing (Secondary)
 
 - LLM: GPT‑OSS‑120B (Cerebras)
 - Turned off by default
+- Kept in code as an internal fallback/experimental path, not exposed in product UI
 - JSON‑only response
 - Expected fields: title + scheduled time, recurrence info
 
@@ -138,7 +136,7 @@ MVP for a **privacy-first, local‑first, multilingual reminder app** with:
 
 ## 8. Offline Behavior
 
-- Full functionality offline except LLM parsing
+- Full functionality offline for supported user-facing flows
 
 ---
 
@@ -146,7 +144,7 @@ MVP for a **privacy-first, local‑first, multilingual reminder app** with:
 
 - All reminder data stored locally
 - No voice audio persistence
-- No user identifiers sent to LLM
+- No user identifiers sent to third-party parsing services
 
 ---
 
@@ -175,6 +173,5 @@ MVP for a **privacy-first, local‑first, multilingual reminder app** with:
 - Text reminders in EN/RU
 - Voice reminders in EN/RU
 - Offline reminders fire reliably
-- LLM parsing is configurable by providing API key
-- Automatic fallback to local parser on LLM outage/rate limit
+- Local parser handles supported reminder entry flows
 - Reminders work with app in tray / background

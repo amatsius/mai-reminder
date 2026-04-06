@@ -2,12 +2,6 @@
 
 The following issues are known and may be addressed in future:
 
-## 🤖 AI Parsing
-
-- **Not implemented properly yet** - AI parsing is not implemented yet. It will be implemented in the future.
-
-- **API Key**: The Cerebras API key is required for AI parsing. Get one for free at [Cerebras](https://cloud.cerebras.ai/).
-
 ## 📦 Distribution
 
 - **Unsigned Binaries**: macOS and Windows binaries are currently unsigned for MVP, requiring manual override during installation (e.g., Gatekeeper on macOS).

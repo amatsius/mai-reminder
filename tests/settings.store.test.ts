@@ -57,6 +57,13 @@ describe('Settings Store (E3-05)', () => {
       expect(store.cerebrasApiKey).toBe('')
     })
 
+    it('defaults parserMode to local before initialization', () => {
+      const store = useSettingsStore()
+
+      expect(store.parserMode).toBe('local')
+      expect(store.isAIParsingEnabled).toBe(false)
+    })
+
     it('does not load quickAddHotkey on non-electron platforms', async () => {
       const { isElectron } = await import('../src/utils/platform')
       vi.mocked(isElectron).mockReturnValue(false)
