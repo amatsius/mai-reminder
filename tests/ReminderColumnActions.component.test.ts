@@ -13,9 +13,27 @@ const i18n = createI18n({
         past: 'Past',
         inMinutes: 'in {n}m',
         inHours: 'in {n}h',
+        inHoursMinutes: 'in {h}h {m}m',
         inDays: 'in {n}d',
+        inDaysHours: 'in {d}d {h}h',
+        inDaysMinutes: 'in {d}d {m}m',
+        inDaysHoursMinutes: 'in {d}d {h}h {m}m',
         edit: 'Edit',
         delete: 'Delete',
+      },
+    },
+    ru: {
+      reminder: {
+        past: 'В прошлом',
+        inMinutes: 'через {n}м',
+        inHours: 'через {n}ч',
+        inHoursMinutes: 'через {h}ч {m}м',
+        inDays: 'через {n}д',
+        inDaysHours: 'через {d}д {h}ч',
+        inDaysMinutes: 'через {d}д {m}м',
+        inDaysHoursMinutes: 'через {d}д {h}ч {m}м',
+        edit: 'Изменить',
+        delete: 'Удалить',
       },
     },
   },
@@ -95,6 +113,64 @@ describe('ReminderColumnActions.vue', () => {
       },
     })
 
-    expect(wrapper.find('.countdown-badge').text()).toContain('in 13h')
+    expect(wrapper.find('.countdown-badge').text()).toContain('in 12h 45m')
+  })
+
+  it('renders the hours-and-minutes countdown in Russian', () => {
+    const now = new Date('2024-01-01T01:50:00.000Z')
+    vi.setSystemTime(now)
+    i18n.global.locale.value = 'ru'
+
+    const wrapper = mount(ReminderColumnActions, {
+      props: {
+        scheduledAt: new Date('2024-01-01T10:00:00.000Z'),
+        showDelete: true,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    expect(wrapper.find('.countdown-badge').text()).toContain('через 8ч 10м')
+    i18n.global.locale.value = 'en'
+  })
+
+  it('renders the days-hours-minutes countdown in English', () => {
+    const now = new Date('2024-01-01T01:50:00.000Z')
+    vi.setSystemTime(now)
+
+    const wrapper = mount(ReminderColumnActions, {
+      props: {
+        scheduledAt: new Date('2024-01-02T03:55:00.000Z'),
+        showDelete: true,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    expect(wrapper.find('.countdown-badge').text()).toContain('in 1d 2h 5m')
+  })
+
+  it('renders the days-hours-minutes countdown in Russian', () => {
+    const now = new Date('2024-01-01T01:50:00.000Z')
+    vi.setSystemTime(now)
+    i18n.global.locale.value = 'ru'
+
+    const wrapper = mount(ReminderColumnActions, {
+      props: {
+        scheduledAt: new Date('2024-01-02T03:55:00.000Z'),
+        showDelete: true,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: commonStubs,
+      },
+    })
+
+    expect(wrapper.find('.countdown-badge').text()).toContain('через 1д 2ч 5м')
+    i18n.global.locale.value = 'en'
   })
 })

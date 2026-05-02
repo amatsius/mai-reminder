@@ -73,11 +73,49 @@ const distanceText = computed(() => {
   if (diffMins < 0) return t('reminder.past') || 'Past'
   if (diffMins < 60) return t('reminder.inMinutes', { n: diffMins }) || `in ${diffMins}m`
 
-  const diffHours = Math.round(diffMins / 60)
-  if (diffHours < 24) return t('reminder.inHours', { n: diffHours }) || `in ${diffHours}h`
+  if (diffMins < 24 * 60) {
+    const diffHours = Math.floor(diffMins / 60)
+    const remainingMinutes = diffMins % 60
 
-  const diffDays = Math.round(diffHours / 24)
-  return t('reminder.inDays', { n: diffDays }) || `in ${diffDays}d`
+    if (remainingMinutes === 0) {
+      return t('reminder.inHours', { n: diffHours }) || `in ${diffHours}h`
+    }
+
+    return (
+      t('reminder.inHoursMinutes', { h: diffHours, m: remainingMinutes }) ||
+      `in ${diffHours}h ${remainingMinutes}m`
+    )
+  }
+
+  const diffDays = Math.floor(diffMins / (24 * 60))
+  const remainingHours = Math.floor((diffMins % (24 * 60)) / 60)
+  const remainingMinutes = diffMins % 60
+
+  if (remainingHours === 0 && remainingMinutes === 0) {
+    return t('reminder.inDays', { n: diffDays }) || `in ${diffDays}d`
+  }
+
+  if (remainingHours > 0 && remainingMinutes > 0) {
+    return (
+      t('reminder.inDaysHoursMinutes', {
+        d: diffDays,
+        h: remainingHours,
+        m: remainingMinutes,
+      }) || `in ${diffDays}d ${remainingHours}h ${remainingMinutes}m`
+    )
+  }
+
+  if (remainingHours > 0) {
+    return (
+      t('reminder.inDaysHours', { d: diffDays, h: remainingHours }) ||
+      `in ${diffDays}d ${remainingHours}h`
+    )
+  }
+
+  return (
+    t('reminder.inDaysMinutes', { d: diffDays, m: remainingMinutes }) ||
+    `in ${diffDays}d ${remainingMinutes}m`
+  )
 })
 </script>
 

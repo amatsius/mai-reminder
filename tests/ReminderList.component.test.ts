@@ -39,7 +39,11 @@ const i18n = createI18n({
         repeatsHourly: 'Repeats hourly',
         inMinutes: 'in {n}m',
         inHours: 'in {n}h',
+        inHoursMinutes: 'in {h}h {m}m',
         inDays: 'in {n}d',
+        inDaysHours: 'in {d}d {h}h',
+        inDaysMinutes: 'in {d}d {m}m',
+        inDaysHoursMinutes: 'in {d}d {h}h {m}m',
         past: 'Past',
         weekdays: {
           mo: 'Monday',
@@ -348,6 +352,6 @@ describe('ReminderList.vue (E3-01)', () => {
 
     expect(wrapper.find('[data-test="reminder-item"]').exists()).toBe(true)
     expect(wrapper.find('.time').text()).toBe('09:30')
-    expect(wrapper.find('[data-test="reminder-actions-col"]').text()).toContain('in 13h')
+    expect(wrapper.find('[data-test="reminder-actions-col"]').text()).toContain('in 12h 45m')
   })
 })
