@@ -79,11 +79,11 @@ jobs:
 
       - name: Build Mac App (Apple Silicon)
         if: matrix.os == 'macos-14'
-        run: npm run dist -- --mac --arm64
+        run: npm run dist -- --mac --arm64 --publish never
 
       - name: Build Windows App (x64)
         if: matrix.os == 'windows-latest'
-        run: npm run dist -- --win --x64
+        run: npm run dist -- --win --x64 --publish never
 
       - name: Build Android APK
         if: matrix.os == 'ubuntu-latest'
@@ -154,4 +154,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
